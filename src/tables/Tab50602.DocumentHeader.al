@@ -131,11 +131,12 @@ table 50601 "Document Header"
         DocumentHeader."No." := jsonDocumentResponse.GetText('invoice_number');
         DocumentHeader."Invoice Date" := jsonDocumentResponse.GetText('date');
         DocumentHeader.NIF := jsonDocumentResponse.GetText('nif');
-        if DocumentHeader.NIF <> '' then
+        if DocumentHeader.NIF <> '' then begin
             Vendor.Reset();
-        Vendor.setrange("VAT Registration No.", DocumentHeader.NIF);
-        if Vendor.FindFirst() then
-            DocumentHeader."Vendor No." := Vendor."No.";
+            Vendor.setrange("VAT Registration No.", DocumentHeader.NIF);
+            if Vendor.FindFirst() then
+                DocumentHeader."Vendor No." := Vendor."No.";
+        end;
         DocumentHeader.Name := jsonDocumentResponse.GetText('vendor_name');
         // Extract and decode base64 image
 
