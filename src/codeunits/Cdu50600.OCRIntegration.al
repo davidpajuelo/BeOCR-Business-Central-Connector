@@ -257,7 +257,7 @@ codeunit 50600 "OCR Integration"
         // Obtener el Document Header por ID API
         if not DocumentHeader.Get(DocumentID) then
             Error('Document Header with ID API %1 not found.', DocumentID);
-        CheckDocument(DocumentHeader);
+        CheckDocument(DocumentHeader, DocumentType);
         // Inicializar el Purchase Header
         PurchaseHeader.Init();
         PurchaseHeader."Document Type" := DocumentType;
@@ -347,12 +347,19 @@ codeunit 50600 "OCR Integration"
         end;
     end;
 
-    local procedure CheckDocument(DocumentHeader: Record "Document Header")
+    local procedure CheckDocument(DocumentHeader: Record "Document Header"; DocumentType: Enum "Purchase Document Type")
     var
         DocumentLine: Record "Document Line";
         DateEvaluate: Date;
         Error0001Lbl: Label 'The Line %1';
+        PurchaseHeader: Record "Purchase Header";
+        DocumentExistLbl: Label 'The Document %1 already exist', Comment = 'ESP="El Documento %1 ya existe"';
     begin
+        PurchaseHeader.Reset();
+        PurchaseHeader.setrange("Document Type", DocumentType);
+        PurchaseHeader.setrange("Vendor Order No.", DocumentHeader."No.");
+        if PurchaseHeader.FindFirst() then
+            Error(DocumentExistLbl, PurchaseHeader."No.");
         DocumentHeader.TestField("Invoice Date");
         Evaluate(DateEvaluate, DocumentHeader."Invoice Date");
         DocumentHeader.TestField("Vendor No.");
