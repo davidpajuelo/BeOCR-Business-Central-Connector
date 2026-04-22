@@ -298,6 +298,7 @@ codeunit 50600 "OCR Integration"
                 PurchaseLine.Validate("No.", DocumentLine."No.");
                 PurchaseLine.Validate(Quantity, ConvertTextToDecimal(DocumentLine.Quantity));
                 PurchaseLine.Validate("Direct Unit Cost", ConvertTextToDecimal(DocumentLine.Price));
+                PurchaseLine.validate("Line Discount %", ConvertTextToDecimal(DocumentLine."% Discount"));
                 PurchaseLine.validate(Description, DocumentLine.Name);
 
                 // Guardar los cambios

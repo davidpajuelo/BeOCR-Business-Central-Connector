@@ -107,6 +107,10 @@ table 50603 "Document Line"
             Caption = 'SubTotal Modify', Comment = 'ESP="Subtotal"';
 
         }
+        field(15; "% Discount"; Text[20])
+        {
+            Caption = '% Discount', Comment = 'ESP="% Descuento"';
+        }
     }
 
     keys

@@ -72,6 +72,11 @@ page 50605 "Document Line SubList"
                         CurrPage.Update();
                     end;
                 }
+                field("% Discount"; Rec."% Discount")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Specifies the % Discount.';
+                }
                 field(Price; Rec."Price")
                 {
                     ApplicationArea = All;

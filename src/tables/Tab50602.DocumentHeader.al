@@ -128,16 +128,16 @@ table 50601 "Document Header"
             Error('Invalid JSON format in response.');
         if jsonDocumentResponse.Contains('Error') then
             error(jsonDocumentResponse.GetText('Error'));
-        DocumentHeader."No." := jsonDocumentResponse.GetText('invoice_number');
-        DocumentHeader."Invoice Date" := jsonDocumentResponse.GetText('date');
-        DocumentHeader.NIF := jsonDocumentResponse.GetText('nif');
+        DocumentHeader."No." := GetText('invoice_number', jsonDocumentResponse, '');
+        DocumentHeader."Invoice Date" := GetText('date', jsonDocumentResponse, format(today()));
+        DocumentHeader.NIF := GetText('nif', jsonDocumentResponse, '');
         if DocumentHeader.NIF <> '' then begin
             Vendor.Reset();
             Vendor.setrange("VAT Registration No.", DocumentHeader.NIF);
             if Vendor.FindFirst() then
                 DocumentHeader."Vendor No." := Vendor."No.";
         end;
-        DocumentHeader.Name := jsonDocumentResponse.GetText('vendor_name');
+        DocumentHeader.Name := GetText('vendor_name', jsonDocumentResponse, '');
         // Extract and decode base64 image
 
         if base64Text <> '' then begin
@@ -157,18 +157,28 @@ table 50601 "Document Header"
             DocumentLine."Line No." := i + 1;
             if DocumentLine.Insert() then;
             DocumentLine.type := DocumentLine.Type::" ";
-            DocumentLine."No. Modify" := jsonObjectItem.GetText('no');
-            DocumentLine.validate(Name, jsonObjectItem.GetText('name'));
-            DocumentLine.validate(Quantity, jsonObjectItem.GetText('quantity'));
-            DocumentLine.validate(Price, jsonObjectItem.GetText('price'));
-            DocumentLine.validate(SubTotal, jsonObjectItem.GetText('subtotal'));
+            DocumentLine."No. Modify" := GetText('no', jsonObjectItem, '');
+            DocumentLine.validate(Name, GetText('name', jsonObjectItem, '0'));
+            DocumentLine.validate(Quantity, GetText('quantity', jsonObjectItem, '0'));
+            DocumentLine.validate(Price, GetText('price', jsonObjectItem, '0'));
+            DocumentLine.validate(SubTotal, GetText('subtotal', jsonObjectItem, '0'));
+            DocumentLine.validate("% Discount", GetText('% discount', jsonObjectItem, '0'));
             DocumentLine.Modify();
         end;
-
-        DocumentHeader."VAT Amount" := jsonDocumentResponse.GetText('vat_amount');
-        DocumentHeader.Total := jsonDocumentResponse.GetText('total');
-
+        DocumentHeader."VAT Amount" := GetText('vat_amount', jsonDocumentResponse, '0');
+        DocumentHeader.Total := GetText('total', jsonDocumentResponse, '0');
         DocumentHeader.Modify();
+    end;
+
+    local procedure GetText(param: Text; jsonObject: JsonObject; defaultValue: Text): text
+    var
+        jsonObjectText: Text;
+    begin
+        if jsonObject.Contains(param) then
+            jsonObjectText := jsonObject.GetText(param)
+        else
+            jsonObjectText := defaultValue;
+        exit(jsonObjectText);
     end;
 
     procedure UploadDocument()
