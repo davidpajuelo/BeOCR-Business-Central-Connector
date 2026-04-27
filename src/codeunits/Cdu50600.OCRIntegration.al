@@ -14,7 +14,7 @@ codeunit 50600 "OCR Integration"
         methodOCR := pMethodOCR;
     end;
 
-    procedure ProcessDocumentOCR(DocumentInStream: InStream): Text
+    procedure ProcessDocumentOCR(DocumentInStream: InStream; totalPages: Integer): Text
     var
         ConfigAPIRecord: Record "BeOCR Setup";
         JsonObject: JsonObject;
@@ -32,6 +32,7 @@ codeunit 50600 "OCR Integration"
 
         PdfBase64 := Base64Convert.ToBase64(DocumentInStream);
         JsonObject.add('document', PdfBase64);
+        JsonObject.add('totalPages', totalPages);
         JsonObject.WriteTo(RequestText);
         RestHelper.AddBody(RequestText);
         RestHelper.SetContentType('application/json');
@@ -91,18 +92,28 @@ codeunit 50600 "OCR Integration"
     procedure ProcessDocumentOCRByDocumentEntry(var DocumentHeader: Record "Document Header"): Text
     var
         TempBlob: Codeunit "Temp Blob";
-
+        PDFDocument: Codeunit "PDF Document";
         ApiResponse: Text;
         OutStream: OutStream;
         InStream: InStream;
         JsonObject: JsonObject;
         JsonToken: JsonToken;
         LogocrId: Text;
+        totalPages: Integer;
     begin
         // Get input stream from the document media field
         DocumentHeader."Document PDF".CreateInStream(InStream);
+
+        // Count PDF pages if it's a PDF
+        DocumentHeader."File Name" := UpperCase(DocumentHeader."File Name");
+        if DocumentHeader."File Name".EndsWith('.PDF') then begin
+            totalPages := PDFDocument.GetPdfPageCount(InStream);
+        end else begin
+            totalPages := 1;
+        end;
+
         // Process the document and get the response
-        ApiResponse := ProcessDocumentOCR(InStream);
+        ApiResponse := ProcessDocumentOCR(InStream, totalPages);
 
         // Store the response in the blob field
         DocumentHeader.Response.CreateOutStream(OutStream);
