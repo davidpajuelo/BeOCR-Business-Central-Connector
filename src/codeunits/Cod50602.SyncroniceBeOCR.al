@@ -38,7 +38,7 @@ codeunit 50602 "Syncronice Be OCR"
             IdAPI := Format(JsonToken);
             OcrJson := JsonObject.GetText('ocr_json');
             // Check if DocumentLedgerEntry exists with this ID API and is not Downloaded
-            base64Text := JsonObject.GetText('image_base64');
+            base64Text := JsonObject.GetText('image_base64-1');
             InsertDocument(IdAPI, OcrJson, base64Text);
         end;
     end;

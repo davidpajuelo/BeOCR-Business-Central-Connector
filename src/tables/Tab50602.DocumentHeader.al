@@ -104,7 +104,10 @@ table 50601 "Document Header"
         i: Integer;
         OutStream: OutStream;
         InStream: InStream;
+        OutStream2: OutStream;
+        InStream2: InStream;
         TempBlob: Codeunit "Temp Blob";
+        TempBlob2: Codeunit "Temp Blob";
         Base64: Codeunit "Base64 Convert";
         ImageBase64: Codeunit "Image Helpers";
         typeImage: text;
@@ -142,10 +145,18 @@ table 50601 "Document Header"
 
         if base64Text <> '' then begin
             Clear(DocumentHeader.Document);
+            // Primera decodificación
             TempBlob.CreateOutStream(OutStream);
             Base64.FromBase64(Base64Text, OutStream);
             TempBlob.CreateInStream(InStream);
-            DocumentHeader.Document.ImportStream(InStream, 'image.jpg', 'image/jpeg');
+
+            InStream.ReadText(Base64Text);
+            // Segunda decodificación
+            TempBlob2.CreateOutStream(OutStream2);
+            Base64.FromBase64(Base64Text, OutStream2);
+            TempBlob2.CreateInStream(InStream2);
+
+            DocumentHeader.Document.ImportStream(InStream2, 'image.jpg', 'image/jpeg');
         end;
 
 
