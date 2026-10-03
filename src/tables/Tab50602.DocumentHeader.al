@@ -55,16 +55,7 @@ table 50601 "Document Header"
             Caption = 'Vendor No.', Comment = 'ESP="Nº de Proveedor"';
             DataClassification = ToBeClassified;
             TableRelation = vendor;
-            trigger OnValidate()
-            var
-                Vendor: record Vendor;
-            begin
-                if "Vendor No." <> '' then begin
-                    vendor.get("Vendor No.");
-                    rec.Name := Vendor.name;
-                    rec.nif := Vendor."VAT Registration No.";
-                end;
-            end;
+
         }
         field(11; "File Name"; Text[100])
         {
@@ -169,7 +160,7 @@ table 50601 "Document Header"
             DocumentLine."Line No." := i + 1;
             if DocumentLine.Insert() then;
             DocumentLine.type := DocumentLine.Type::" ";
-            DocumentLine."No. Modify" := GetText('no', jsonObjectItem, '');
+            DocumentLine."No. Import" := GetText('no', jsonObjectItem, '');
             DocumentLine.validate(Name, GetText('name', jsonObjectItem, '0'));
             DocumentLine.validate(Quantity, GetText('quantity', jsonObjectItem, '0'));
             DocumentLine.validate(Price, GetText('price', jsonObjectItem, '0'));

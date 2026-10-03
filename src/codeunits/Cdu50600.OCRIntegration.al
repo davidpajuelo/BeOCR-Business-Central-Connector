@@ -294,7 +294,7 @@ codeunit 50600 "OCR Integration"
                 if PurchaseLine.Insert(true) then;
 
                 // Validar los campos de la Purchase Line
-                PurchaseLine.Validate("No.", DocumentLine."No.");
+                PurchaseLine.Validate("No.", DocumentLine."No. BC");
                 PurchaseLine.Validate(Quantity, ConvertTextToDecimal(DocumentLine.Quantity));
                 PurchaseLine.Validate("Direct Unit Cost", ConvertTextToDecimal(DocumentLine.Price));
                 PurchaseLine.validate("Line Discount %", ConvertTextToDecimal(DocumentLine."% Discount"));
@@ -369,7 +369,7 @@ codeunit 50600 "OCR Integration"
         if DocumentLine.FindSet() then
             repeat
                 DocumentLine.TestField(Type);
-                DocumentLine.Validate("No.");
+                DocumentLine.Validate("No. BC");
             until DocumentLine.Next() = 0;
     end;
 
