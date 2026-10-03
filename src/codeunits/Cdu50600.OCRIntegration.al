@@ -32,6 +32,7 @@ codeunit 50600 "OCR Integration"
 
         PdfBase64 := Base64Convert.ToBase64(DocumentInStream);
         JsonObject.add('document', PdfBase64);
+        JsonObject.add('totalPages', 1);
         JsonObject.WriteTo(RequestText);
         RestHelper.AddBody(RequestText);
         RestHelper.SetContentType('application/json');
@@ -272,9 +273,7 @@ codeunit 50600 "OCR Integration"
         PurchaseHeader.Validate("Document Date", PostingDate);
         PurchaseHeader.validate(PurchaseHeader."Buy-from Vendor No.", DocumentHeader."Vendor No.");
         PurchaseHeader.Validate("Vendor Invoice No.", DocumentHeader."No.");
-        //PurchaseHeader.Validate("VAT Registration No.", DocumentHeader.NIF);
 
-        // Insertar el Purchase Header (esto generará el siguiente número de documento)
         PurchaseHeader.Insert(true);
 
         // Obtener todas las Document Lines asociadas al Document Header
@@ -396,6 +395,94 @@ codeunit 50600 "OCR Integration"
             exit(DecimalVar)
         else
             exit(0);
+    end;
+
+    procedure GetLogocrIds(): List of [Integer]
+    var
+        ConfigAPIRecord: Record "BeOCR Setup";
+        JsonObject: JsonObject;
+        JsonArray: JsonArray;
+        JsonToken: JsonToken;
+        RequestText: Text;
+        ResponseText: Text;
+        RestHelper: Codeunit "API Rest Helper";
+        IdList: List of [Integer];
+        i: Integer;
+    begin
+        ConfigAPIRecord.GET();
+
+        if ConfigAPIRecord.URL = '' then
+            Error(Error0002Lbl);
+
+        if ConfigAPIRecord."API Key" = '' then
+            Error(Error0003Lbl);
+
+        // Crear el objeto JSON con el token
+        JsonObject.Add('token', ConfigAPIRecord."API Key");
+        JsonObject.WriteTo(RequestText);
+
+        // Hacer la llamada al API
+        RestHelper.Initialize('POST', ConfigAPIRecord.URL + '/' + format(methodOCR));
+        RestHelper.AddDefaultRequestHeaders();
+        RestHelper.AddBody(RequestText);
+        RestHelper.SetContentType('application/json');
+
+        RestHelper.Send(RequestText);
+        ResponseText := RestHelper.GetResponseContentAsText();
+
+        // Parsear la respuesta JSON y extraer los IDs
+        if JsonObject.ReadFrom(ResponseText) then begin
+            if JsonObject.Get('logocr_ids', JsonToken) then begin
+                JsonArray := JsonToken.AsArray();
+                for i := 0 to JsonArray.Count - 1 do begin
+                    JsonArray.Get(i, JsonToken);
+                    IdList.Add(JsonToken.AsValue().AsInteger());
+                end;
+            end;
+        end;
+
+        exit(IdList);
+    end;
+
+    procedure GetOCRLogById(logId: Integer) ResultJsonObject: JsonObject
+    var
+        ConfigAPIRecord: Record "BeOCR Setup";
+        JsonObject: JsonObject;
+        RequestText: Text;
+        ResponseText: Text;
+        CleanedResponse: Text;
+        RestHelper: Codeunit "API Rest Helper";
+    begin
+        ConfigAPIRecord.GET();
+
+        if ConfigAPIRecord.URL = '' then
+            Error(Error0002Lbl);
+
+        if ConfigAPIRecord."API Key" = '' then
+            Error(Error0003Lbl);
+
+        RestHelper.Initialize('POST', ConfigAPIRecord.URL + '/' + format(methodOCR));
+        RestHelper.AddDefaultRequestHeaders();
+
+        JsonObject.Add('token', ConfigAPIRecord."API Key");
+        JsonObject.Add('apiKeyName', '');
+        JsonObject.Add('log_id', logId);
+
+        JsonObject.WriteTo(RequestText);
+        RestHelper.AddBody(RequestText);
+        RestHelper.SetContentType('application/json');
+        RestHelper.Send(RequestText);
+
+        ResponseText := RestHelper.GetResponseContentAsText();
+        //ResponseText := DelChr(ResponseText, '<>', '"');
+        // Limpiar el JSON: remover \n y cambiar \" a "
+        //CleanedResponse := ResponseText.Replace('\n', '');//.Replace('\"', '"');
+
+        // Leer el JSON limpio a un JsonObject
+        if not ResultJsonObject.ReadFrom(ResponseText) then
+            Error('Failed to parse OCR Log response.');
+
+        exit(ResultJsonObject);
     end;
 
     var

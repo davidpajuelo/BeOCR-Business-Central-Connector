@@ -141,11 +141,23 @@ table 50601 "Document Header"
         // Extract and decode base64 image
 
         if base64Text <> '' then begin
+            /* if IsPdfBase64(base64Text) then begin
+                 // Es un PDF, convertir a JPG
+                 ResultBlob := ConvertBase64PdfToJpg(base64Text);
+                 ResultBlob.CreateInStream(InStream);
+
+                 // Importar la imagen JPG
             Clear(DocumentHeader.Document);
-            TempBlob.CreateOutStream(OutStream);
-            Base64.FromBase64(Base64Text, OutStream);
-            TempBlob.CreateInStream(InStream);
             DocumentHeader.Document.ImportStream(InStream, 'image.jpg', 'image/jpeg');
+             end else begin
+                 // Es una imagen, importar directamente
+                 */
+            // Clear(DocumentHeader.Document);
+            //  TempBlob.CreateOutStream(OutStream);
+            //  Base64.FromBase64(Base64Text, OutStream);
+            //  TempBlob.CreateInStream(InStream);
+            //   DocumentHeader.Document.ImportStream(InStream, 'image.jpg', 'image/jpeg');
+            //end;
         end;
 
 
