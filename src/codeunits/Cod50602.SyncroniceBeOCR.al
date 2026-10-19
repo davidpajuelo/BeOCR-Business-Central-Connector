@@ -63,10 +63,12 @@ codeunit 50602 "Syncronice Be OCR"
         // Parse the response - it should be a JSON array
         if ResponseText = '' then
             exit;
-        ResponseText := ResponseText.Replace('\n', '  ');
+        //ResponseText := DelChr(ResponseText, '<>', '"');
+        // Limpiar el JSON: remover \n y cambiar \" a "
+        //ResponseText := ResponseText.Replace('\n', '').Replace('\"', '"');
         // Parse JSON array
         if not JsonArray.ReadFrom(ResponseText) then
-            Error('Invalid JSON format in response from getDocumentsOCR.');
+            Error('Invalid JSON format in response from getDocumentsOCR. %1', ResponseText);
         // Process each document in the array
         for i := 0 to JsonArray.Count - 1 do begin
             JsonObject := JsonArray.GetObject(i);
@@ -76,12 +78,12 @@ codeunit 50602 "Syncronice Be OCR"
             clear(OcrJson);
             clear(base64Text);
             if JsonObject.Contains('ocr_json') then
-            OcrJson := JsonObject.GetText('ocr_json');
+                OcrJson := JsonObject.GetText('ocr_json');
             // Check if DocumentLedgerEntry exists with this ID API and is not Downloaded
             if JsonObject.Contains('image_base64-' + format(1)) then
                 base64Text := JsonObject.GetText('image_base64-' + format(1));
             if not ((OcrJson = '') or (base64Text = '')) then
-            InsertDocument(IdAPI, OcrJson, base64Text);
+                InsertDocument(IdAPI, OcrJson, base64Text);
         end;
     end;
 
@@ -101,6 +103,28 @@ codeunit 50602 "Syncronice Be OCR"
                 ORCLog.InsertError(idAPI, GetLastErrorText());
 
         end;
+    end;
+
+    local procedure ProcessOCRLogJson(LogJsonObject: JsonObject)
+    var
+        JsonToken: JsonToken;
+        IdAPI: Text;
+        OcrJson: Text;
+        base64Text: Text;
+    begin
+        // Extraer los campos del JSON descargado
+        if LogJsonObject.Get('id', JsonToken) then
+            IdAPI := JsonToken.AsValue().AsText();
+
+        if LogJsonObject.Get('ocr_json', JsonToken) then
+            OcrJson := JsonToken.AsValue().AsText();
+
+        if LogJsonObject.Get('image_base64', JsonToken) then
+            base64Text := JsonToken.AsValue().AsText();
+
+        // Llamar a InsertDocument con los datos extraídos
+        if IdAPI <> '' then
+            InsertDocument(IdAPI, OcrJson, base64Text);
     end;
 
 }

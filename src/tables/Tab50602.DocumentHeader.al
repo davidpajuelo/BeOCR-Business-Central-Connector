@@ -89,6 +89,8 @@ table 50601 "Document Header"
         DocumentHeader: Record "Document Header";
         DocumentLine: Record "Document Line";
         Vendor: Record Vendor;
+
+        ResultBlob: Codeunit "Temp Blob";
         jsonDocumentResponse: JsonObject;
         jsonArrayItems: JsonArray;
         jsonObjectItem: JsonObject;
@@ -115,6 +117,7 @@ table 50601 "Document Header"
         // Parse JSON directly from text
 
 
+        //DownloadResponseAsFile(ResponseText);
         if not jsonDocumentResponse.ReadFrom(ResponseText) then
             Error('Invalid JSON format in response.');
         if jsonDocumentResponse.Contains('Error') then
@@ -138,8 +141,8 @@ table 50601 "Document Header"
                  ResultBlob.CreateInStream(InStream);
 
                  // Importar la imagen JPG
-            Clear(DocumentHeader.Document);
-            DocumentHeader.Document.ImportStream(InStream, 'image.jpg', 'image/jpeg');
+                 Clear(DocumentHeader.Document);
+                 DocumentHeader.Document.ImportStream(InStream, 'image.jpg', 'image/jpeg');
              end else begin
                  // Es una imagen, importar directamente
                  */
@@ -183,6 +186,46 @@ table 50601 "Document Header"
             jsonObjectText := defaultValue;
         exit(jsonObjectText);
     end;
+
+    local procedure DownloadResponseAsFile(ResponseText: Text)
+    var
+        TempBlob: Codeunit "Temp Blob";
+        OutStream: OutStream;
+        InStream: InStream;
+        response: text;
+    begin
+        if ResponseText = '' then
+            exit;
+
+        TempBlob.CreateOutStream(OutStream, TEXTENCODING::UTF8);
+        OutStream.WriteText(ResponseText);
+        TempBlob.CreateInStream(InStream);
+        response := 'response.json';
+        DownloadFromStream(InStream, 'Download', '', 'JSON Files (*.json)|*.json', response);
+    end;
+    /*
+        local procedure ConvertBase64PdfToJpg(base64Text: Text): Codeunit "Temp Blob"
+        var
+            TempBlob: Codeunit "Temp Blob";
+            TempBlobImage: Codeunit "Temp Blob";
+            Base64: Codeunit "Base64 Convert";
+            PDFDocument: Codeunit "PDF Document";
+            InStream: InStream;
+            ImgStream: InStream;
+            OutStream: OutStream;
+        begin
+            // Decodificar Base64
+            TempBlob.CreateOutStream(OutStream);
+            Base64.FromBase64(base64Text, OutStream);
+
+            TempBlob.CreateInStream(InStream);
+
+            // Cargar y convertir PDF a imagen JPG
+            PDFDocument.Load(InStream);
+            TempBlobImage.CreateInStream(ImgStream);
+            PDFDocument.ConvertPdfToImage(ImgStream, Enum::"Image Format"::Jpeg, 1);  // Convertir página 1 a JPEG
+            exit(TempBlobImage);
+        end;*/
 
     procedure UploadDocument()
 
@@ -278,4 +321,19 @@ table 50601 "Document Header"
         ConfigAPIOCR.TestField("Document Header Serie");
         ID := SerieMgt.GetNextNo(ConfigAPIOCR."Document Header Serie");
     end;
+    /*
+        local procedure IsPdfBase64(base64Text: Text): Boolean
+        var
+            TempBlob: Codeunit "Temp Blob";
+            Base64: Codeunit "Base64 Convert";
+            InStream: InStream;
+            Byte1: Byte;
+            Byte2: Byte;
+            Byte3: Byte;
+            Byte4: Byte;
+            OutStream: OutStream;
+        begin
+            exit(base64Text.StartsWith('Lzlq'));
+        end;
+        */
 }

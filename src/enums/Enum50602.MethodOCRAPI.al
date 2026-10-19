@@ -21,4 +21,8 @@ enum 50602 "Method OCR API"
     {
         Caption = 'ocr_logs';
     }
+    value(5; logocr_ids)
+    {
+        Caption = 'logocr_ids';
+    }
 }
