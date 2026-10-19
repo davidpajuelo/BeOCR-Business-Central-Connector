@@ -16,6 +16,12 @@ page 50606 "PDF Preview"
                 ApplicationArea = All;
                 ShowCaption = false;
             }
+            field("Document 2"; Rec."Document 2")
+            {
+                ApplicationArea = All;
+                ShowCaption = false;
+                Visible = HasDocument2;
+            }
         }
     }
 
@@ -82,4 +88,12 @@ page 50606 "PDF Preview"
 
         }
     }
+
+    trigger OnAfterGetCurrRecord()
+    begin
+        HasDocument2 := Rec."Document 2".HasValue();
+    end;
+
+    var
+        HasDocument2: Boolean;
 }

@@ -75,6 +75,12 @@ table 50601 "Document Header"
             DataClassification = CustomerContent;
 
         }
+        field(15; "Document 2"; Media)
+        {
+            Caption = 'Document PNG (Page 2)', Comment = 'ESP="PNG del Documento (Página 2)"';
+            DataClassification = CustomerContent;
+            ExtendedDatatype = Document;
+        }
     }
     keys
     {
@@ -302,6 +308,68 @@ table 50601 "Document Header"
         DocumentHeader.Modify();
         // Display success message with the document ID from the API response
         Message(SuccessMsg, DocumentHeader."ID API");
+    end;
+
+    /// <summary>
+    /// Receives a PDF encoded in Base64, keeps the original PDF in "Document PDF",
+    /// converts the first page to PNG into Document and the second page (if any) into "Document 2".
+    /// </summary>
+    procedure SetDocumentFromBase64(DocumentBase64: Text)
+    var
+        TempBlobPdf: Codeunit "Temp Blob";
+        TempBlobPage1: Codeunit "Temp Blob";
+        TempBlobPage2: Codeunit "Temp Blob";
+        Base64Convert: Codeunit "Base64 Convert";
+        PDFDocument: Codeunit "PDF Document";
+        PdfOutStream: OutStream;
+        PdfInStream: InStream;
+        Page1InStream: InStream;
+        Page2InStream: InStream;
+        PageCount: Integer;
+        NotPdfErr: Label 'The Document String must be a PDF file encoded in Base64.', Comment = 'ESP="El Document String debe ser un fichero PDF codificado en Base64."';
+        ConvertPageErr: Label 'Page %1 of the PDF could not be converted to an image.', Comment = 'ESP="No se ha podido convertir a imagen la página %1 del PDF."';
+    begin
+        // Remove optional data URI prefix (data:application/pdf;base64,)
+        if DocumentBase64.StartsWith('data:') and DocumentBase64.Contains(',') then
+            DocumentBase64 := DocumentBase64.Substring(DocumentBase64.IndexOf(',') + 1);
+        DocumentBase64 := DelChr(DocumentBase64, '<>', ' ');
+        if DocumentBase64 = '' then
+            exit;
+
+        // '%PDF' in Base64 starts with 'JVBER'
+        if not DocumentBase64.StartsWith('JVBER') then
+            Error(NotPdfErr);
+
+        TempBlobPdf.CreateOutStream(PdfOutStream);
+        Base64Convert.FromBase64(DocumentBase64, PdfOutStream);
+
+        // Keep the original PDF
+        Clear("Document PDF");
+        "Document PDF".CreateOutStream(PdfOutStream);
+        TempBlobPdf.CreateInStream(PdfInStream);
+        CopyStream(PdfOutStream, PdfInStream);
+
+        TempBlobPdf.CreateInStream(PdfInStream);
+        PageCount := PDFDocument.GetPdfPageCount(PdfInStream);
+
+        TempBlobPdf.CreateInStream(PdfInStream);
+        PDFDocument.Load(PdfInStream);
+
+        // Page 1 -> Document
+        Clear(Document);
+        TempBlobPage1.CreateInStream(Page1InStream);
+        if not PDFDocument.ConvertPdfToImage(Page1InStream, Enum::"Image Format"::Png, 1) then
+            Error(ConvertPageErr, 1);
+        Document.ImportStream(Page1InStream, 'Page1.png', 'image/png');
+
+        // Page 2 -> Document 2
+        Clear("Document 2");
+        if PageCount >= 2 then begin
+            TempBlobPage2.CreateInStream(Page2InStream);
+            if not PDFDocument.ConvertPdfToImage(Page2InStream, Enum::"Image Format"::Png, 2) then
+                Error(ConvertPageErr, 2);
+            "Document 2".ImportStream(Page2InStream, 'Page2.png', 'image/png');
+        end;
     end;
 
     trigger OnDelete()
