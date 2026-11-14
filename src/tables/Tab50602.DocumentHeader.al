@@ -55,16 +55,7 @@ table 50601 "Document Header"
             Caption = 'Vendor No.', Comment = 'ESP="Nº de Proveedor"';
             DataClassification = ToBeClassified;
             TableRelation = vendor;
-            trigger OnValidate()
-            var
-                Vendor: record Vendor;
-            begin
-                if "Vendor No." <> '' then begin
-                    vendor.get("Vendor No.");
-                    rec.Name := Vendor.name;
-                    rec.nif := Vendor."VAT Registration No.";
-                end;
-            end;
+
         }
         field(11; "File Name"; Text[100])
         {
@@ -84,6 +75,12 @@ table 50601 "Document Header"
             DataClassification = CustomerContent;
 
         }
+        field(15; "Document 2"; Media)
+        {
+            Caption = 'Document PNG (Page 2)', Comment = 'ESP="PNG del Documento (Página 2)"';
+            DataClassification = CustomerContent;
+            ExtendedDatatype = Document;
+        }
     }
     keys
     {
@@ -98,16 +95,15 @@ table 50601 "Document Header"
         DocumentHeader: Record "Document Header";
         DocumentLine: Record "Document Line";
         Vendor: Record Vendor;
+
+        ResultBlob: Codeunit "Temp Blob";
         jsonDocumentResponse: JsonObject;
         jsonArrayItems: JsonArray;
         jsonObjectItem: JsonObject;
         i: Integer;
         OutStream: OutStream;
         InStream: InStream;
-        OutStream2: OutStream;
-        InStream2: InStream;
         TempBlob: Codeunit "Temp Blob";
-        TempBlob2: Codeunit "Temp Blob";
         Base64: Codeunit "Base64 Convert";
         ImageBase64: Codeunit "Image Helpers";
         typeImage: text;
@@ -127,6 +123,7 @@ table 50601 "Document Header"
         // Parse JSON directly from text
 
 
+        //DownloadResponseAsFile(ResponseText);
         if not jsonDocumentResponse.ReadFrom(ResponseText) then
             Error('Invalid JSON format in response.');
         if jsonDocumentResponse.Contains('Error') then
@@ -144,19 +141,23 @@ table 50601 "Document Header"
         // Extract and decode base64 image
 
         if base64Text <> '' then begin
-            Clear(DocumentHeader.Document);
-            // Primera decodificación
-            TempBlob.CreateOutStream(OutStream);
-            Base64.FromBase64(Base64Text, OutStream);
-            TempBlob.CreateInStream(InStream);
+            /* if IsPdfBase64(base64Text) then begin
+                 // Es un PDF, convertir a JPG
+                 ResultBlob := ConvertBase64PdfToJpg(base64Text);
+                 ResultBlob.CreateInStream(InStream);
 
-            InStream.ReadText(Base64Text);
-            // Segunda decodificación
-            TempBlob2.CreateOutStream(OutStream2);
-            Base64.FromBase64(Base64Text, OutStream2);
-            TempBlob2.CreateInStream(InStream2);
-
-            DocumentHeader.Document.ImportStream(InStream2, 'image.jpg', 'image/jpeg');
+                 // Importar la imagen JPG
+                 Clear(DocumentHeader.Document);
+                 DocumentHeader.Document.ImportStream(InStream, 'image.jpg', 'image/jpeg');
+             end else begin
+                 // Es una imagen, importar directamente
+                 */
+            // Clear(DocumentHeader.Document);
+            //  TempBlob.CreateOutStream(OutStream);
+            //  Base64.FromBase64(Base64Text, OutStream);
+            //  TempBlob.CreateInStream(InStream);
+            //   DocumentHeader.Document.ImportStream(InStream, 'image.jpg', 'image/jpeg');
+            //end;
         end;
 
 
@@ -168,7 +169,7 @@ table 50601 "Document Header"
             DocumentLine."Line No." := i + 1;
             if DocumentLine.Insert() then;
             DocumentLine.type := DocumentLine.Type::" ";
-            DocumentLine."No. Modify" := GetText('no', jsonObjectItem, '');
+            DocumentLine."No. Import" := GetText('no', jsonObjectItem, '');
             DocumentLine.validate(Name, GetText('name', jsonObjectItem, '0'));
             DocumentLine.validate(Quantity, GetText('quantity', jsonObjectItem, '0'));
             DocumentLine.validate(Price, GetText('price', jsonObjectItem, '0'));
@@ -191,6 +192,46 @@ table 50601 "Document Header"
             jsonObjectText := defaultValue;
         exit(jsonObjectText);
     end;
+
+    local procedure DownloadResponseAsFile(ResponseText: Text)
+    var
+        TempBlob: Codeunit "Temp Blob";
+        OutStream: OutStream;
+        InStream: InStream;
+        response: text;
+    begin
+        if ResponseText = '' then
+            exit;
+
+        TempBlob.CreateOutStream(OutStream, TEXTENCODING::UTF8);
+        OutStream.WriteText(ResponseText);
+        TempBlob.CreateInStream(InStream);
+        response := 'response.json';
+        DownloadFromStream(InStream, 'Download', '', 'JSON Files (*.json)|*.json', response);
+    end;
+    /*
+        local procedure ConvertBase64PdfToJpg(base64Text: Text): Codeunit "Temp Blob"
+        var
+            TempBlob: Codeunit "Temp Blob";
+            TempBlobImage: Codeunit "Temp Blob";
+            Base64: Codeunit "Base64 Convert";
+            PDFDocument: Codeunit "PDF Document";
+            InStream: InStream;
+            ImgStream: InStream;
+            OutStream: OutStream;
+        begin
+            // Decodificar Base64
+            TempBlob.CreateOutStream(OutStream);
+            Base64.FromBase64(base64Text, OutStream);
+
+            TempBlob.CreateInStream(InStream);
+
+            // Cargar y convertir PDF a imagen JPG
+            PDFDocument.Load(InStream);
+            TempBlobImage.CreateInStream(ImgStream);
+            PDFDocument.ConvertPdfToImage(ImgStream, Enum::"Image Format"::Jpeg, 1);  // Convertir página 1 a JPEG
+            exit(TempBlobImage);
+        end;*/
 
     procedure UploadDocument()
 
@@ -269,6 +310,68 @@ table 50601 "Document Header"
         Message(SuccessMsg, DocumentHeader."ID API");
     end;
 
+    /// <summary>
+    /// Receives a PDF encoded in Base64, keeps the original PDF in "Document PDF",
+    /// converts the first page to PNG into Document and the second page (if any) into "Document 2".
+    /// </summary>
+    procedure SetDocumentFromBase64(DocumentBase64: Text)
+    var
+        TempBlobPdf: Codeunit "Temp Blob";
+        TempBlobPage1: Codeunit "Temp Blob";
+        TempBlobPage2: Codeunit "Temp Blob";
+        Base64Convert: Codeunit "Base64 Convert";
+        PDFDocument: Codeunit "PDF Document";
+        PdfOutStream: OutStream;
+        PdfInStream: InStream;
+        Page1InStream: InStream;
+        Page2InStream: InStream;
+        PageCount: Integer;
+        NotPdfErr: Label 'The Document String must be a PDF file encoded in Base64.', Comment = 'ESP="El Document String debe ser un fichero PDF codificado en Base64."';
+        ConvertPageErr: Label 'Page %1 of the PDF could not be converted to an image.', Comment = 'ESP="No se ha podido convertir a imagen la página %1 del PDF."';
+    begin
+        // Remove optional data URI prefix (data:application/pdf;base64,)
+        if DocumentBase64.StartsWith('data:') and DocumentBase64.Contains(',') then
+            DocumentBase64 := DocumentBase64.Substring(DocumentBase64.IndexOf(',') + 1);
+        DocumentBase64 := DelChr(DocumentBase64, '<>', ' ');
+        if DocumentBase64 = '' then
+            exit;
+
+        // '%PDF' in Base64 starts with 'JVBER'
+        if not DocumentBase64.StartsWith('JVBER') then
+            Error(NotPdfErr);
+
+        TempBlobPdf.CreateOutStream(PdfOutStream);
+        Base64Convert.FromBase64(DocumentBase64, PdfOutStream);
+
+        // Keep the original PDF
+        Clear("Document PDF");
+        "Document PDF".CreateOutStream(PdfOutStream);
+        TempBlobPdf.CreateInStream(PdfInStream);
+        CopyStream(PdfOutStream, PdfInStream);
+
+        TempBlobPdf.CreateInStream(PdfInStream);
+        PageCount := PDFDocument.GetPdfPageCount(PdfInStream);
+
+        TempBlobPdf.CreateInStream(PdfInStream);
+        PDFDocument.Load(PdfInStream);
+
+        // Page 1 -> Document
+        Clear(Document);
+        TempBlobPage1.CreateInStream(Page1InStream);
+        if not PDFDocument.ConvertPdfToImage(Page1InStream, Enum::"Image Format"::Png, 1) then
+            Error(ConvertPageErr, 1);
+        Document.ImportStream(Page1InStream, 'Page1.png', 'image/png');
+
+        // Page 2 -> Document 2
+        Clear("Document 2");
+        if PageCount >= 2 then begin
+            TempBlobPage2.CreateInStream(Page2InStream);
+            if not PDFDocument.ConvertPdfToImage(Page2InStream, Enum::"Image Format"::Png, 2) then
+                Error(ConvertPageErr, 2);
+            "Document 2".ImportStream(Page2InStream, 'Page2.png', 'image/png');
+        end;
+    end;
+
     trigger OnDelete()
     var
         DocumentLine: Record "Document Line";
@@ -286,4 +389,19 @@ table 50601 "Document Header"
         ConfigAPIOCR.TestField("Document Header Serie");
         ID := SerieMgt.GetNextNo(ConfigAPIOCR."Document Header Serie");
     end;
+    /*
+        local procedure IsPdfBase64(base64Text: Text): Boolean
+        var
+            TempBlob: Codeunit "Temp Blob";
+            Base64: Codeunit "Base64 Convert";
+            InStream: InStream;
+            Byte1: Byte;
+            Byte2: Byte;
+            Byte3: Byte;
+            Byte4: Byte;
+            OutStream: OutStream;
+        begin
+            exit(base64Text.StartsWith('Lzlq'));
+        end;
+        */
 }

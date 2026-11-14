@@ -15,6 +15,8 @@ permissionset 50600 GeneratedPermission
         page "Document Header List" = X,
         page "Document Line SubList" = X,
         page "PDF Preview" = X,
+        page "Document Header API" = X,
+        page "Document Line API" = X,
         tabledata "OCR Log" = RIMD,
         table "OCR Log" = X;
 }

@@ -99,54 +99,8 @@ page 50604 "Document Header Card"
 
         area(Processing)
         {
-            action(SearchVendor)
-            {
-                ApplicationArea = All;
-                Caption = 'Buscar Proveedor';
-                ToolTip = 'Busca el proveedor por nombre y NIF usando el API de búsqueda';
-                Image = Find;
-                trigger OnAction()
-                var
-                    OCRIntegration: Codeunit "OCR Integration";
-                    ResponseText: Text;
-                    JsonObject: JsonObject;
-                    JsonToken: JsonToken;
-                begin
-                    if Rec.Name = '' then begin
-                        message('Por favor ingrese un nombre de proveedor para buscar');
-                        exit;
-                    end;
-                    OCRIntegration.SetMethod(Enum::"Method OCR API"::record_search);
-                    ResponseText := OCRIntegration.SearchVendorByNameAndNif(Rec.Name, Rec.NIF);
 
-                    if JsonObject.ReadFrom(ResponseText) then begin
-                        if JsonObject.Get('code', JsonToken) then
-                            Rec."No." := JsonToken.AsValue().AsText();
-                        if JsonObject.Get('name', JsonToken) then
-                            Rec.Name := JsonToken.AsValue().AsText();
-                        if JsonObject.Get('nif', JsonToken) then
-                            Rec.NIF := JsonToken.AsValue().AsText();
-                        message('Proveedor encontrado: ' + Rec.Name);
-                    end else begin
-                        message('No se encontró el proveedor o error en la respuesta');
-                    end;
 
-                    isModify := true;
-                    CurrPage.Update();
-                end;
-            }
-            action(Save)
-            {
-                Caption = 'Guardar';
-                ToolTip = 'Guardar cambios en el documento';
-                ApplicationArea = All;
-                Visible = false;
-                Image = Save;
-                trigger OnAction()
-                begin
-                    SaveData();
-                end;
-            }
             action(ConvertToPurchaseInvoice)
             {
                 Caption = 'Convertir a Factura de Compra';
@@ -210,7 +164,7 @@ page 50604 "Document Header Card"
         {
             group(Category_Process)
             {
-                actionref(Promoted_Save; Save) { }
+
                 actionref(Promoted_ConverToPurchaseInvoice; ConvertToPurchaseInvoice) { }
                 actionref(Promoted_ConverToPurchaseOrder; ConvertToPurchaseOrder) { }
             }
@@ -218,26 +172,6 @@ page 50604 "Document Header Card"
     }
 
 
-    local procedure SaveData()
-    var
-        Vendor: Record Vendor;
-    begin
-        Rec."No." := tempDocumentHeader."No.";
-        REc.validate("Vendor No.", VendorNo);
-
-        Rec."Invoice Date" := tempDocumentHeader."Invoice Date";
-        Rec."VAT Amount" := tempDocumentHeader."VAT Amount";
-        Rec.Total := tempDocumentHeader.Total;
-        Rec.Modify();
-        if Vendor.get(VendorNo) then begin
-            tempDocumentHeader.Name := Vendor.Name;
-            tempDocumentHeader.NIF := Vendor."VAT Registration No.";
-        end else begin
-            Rec.Name := tempDocumentHeader.Name;
-            Rec.NIF := tempDocumentHeader.NIF;
-        end;
-        Message('Datos guardados correctamente.');
-    end;
 
     var
         tempDocumentHeader: Record "Document Header" temporary;
